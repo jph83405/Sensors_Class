@@ -3,101 +3,130 @@
 #include <fstream>
 #include "MatlabEngine.hpp"
 #include "MatlabDataArray.hpp"
-                                      
+
 using namespace matlab::engine;
 
+std::vector<double> temp;
+std::vector<double> xacc;
+std::vector<double> yacc;
+std::vector<double> zacc;
+std::vector<double> kPitch;
+std::vector<double> kRoll;
+std::vector<double> latitude;
+std::vector<double> longitude;
+std::vector<double> vWind;
+std::vector<double> watt;
+std::vector<double> testTime;
+
 //prototypes
-void populate(std::vector<double>& dataVector, std::vector<double>& timeVector, double timeIncrement, std::string input);
+void populate(double timeIncrement, std::string input);
 
 int main() {
 
 	std::string wait;
-
-	// creating two vectors, placeholders for data from input file and a time vector starting from t = 0.
-	// will likely create the two synchronously so time and parsedData are the same size for plotting.
-	std::vector<double> parsedData;
-	for (int i = 0; i < 5; i++)
-		parsedData.push_back(i);
-
-	std::vector<double> time;
-	for (int i = 0; i < 5; i++)
-		time.push_back(i);
 
 	// starts MATLAB session
 	std::unique_ptr<MATLABEngine> ep = matlab::engine::startMATLAB({ u"-desktop" });
 	matlab::data::ArrayFactory factory;
 
 
-	//basic functionality testing. Not being used / will probably be deleted later
-	/*
+	// populating vectors and sending to MATLAB to graph
+	populate(0.1, "C:\\Users\\profe\\Desktop\\test1.txt"); // change string to whatever the real destination will be
 
-	// creates a MATLAB array using the vectors created earlier
-	auto Y = factory.createArray({ 1,parsedData.size() }, parsedData.cbegin(), parsedData.cend());
-	auto X = factory.createArray({ 1,time.size() }, time.cbegin(), time.cend());
+	auto tempArr = factory.createArray({ 1,temp.size() }, temp.cbegin(), temp.cend());
+	auto xaccArr = factory.createArray({ 1,xacc.size() }, xacc.cbegin(), xacc.cend());
+	auto yaccArr = factory.createArray({ 1,yacc.size() }, yacc.cbegin(), yacc.cend());
+	auto zaccArr = factory.createArray({ 1,zacc.size() }, zacc.cbegin(), zacc.cend());
+	auto kPitchArr = factory.createArray({ 1,kPitch.size() }, kPitch.cbegin(), kPitch.cend());
+	auto kRollArr = factory.createArray({ 1,kRoll.size() }, kRoll.cbegin(), kRoll.cend());
+	auto latitudeArr = factory.createArray({ 1,latitude.size() }, latitude.cbegin(), latitude.cend());
+	auto longitudeArr = factory.createArray({ 1,longitude.size() }, longitude.cbegin(), longitude.cend());
+	auto wattArr = factory.createArray({ 1,watt.size() }, watt.cbegin(), watt.cend());
+	auto timeArr = factory.createArray({ 1,testTime.size() }, testTime.cbegin(), testTime.cend());
 
-	// sets the variables in MATLAB according the MATLAB arrays
-	ep->setVariable(u"dependent", Y);
-	ep->setVariable(u"time", X);
-
-	// creates a MATLAB plot of the given variables
-	ep->eval(u"plot(time, dependent)");
-	ep->eval(u"xlabel('time (s)')");
-	ep->eval(u"ylabel('dependent')");
-
-	// sample function evaluation of MATLAB vector Y
-	auto result = ep->feval(u"sqrt", Y);
-	ep->setVariable(u"result", result);
-	ep->eval(u"figure");
-	ep->eval(u"plot(time, dependent, time, result)");
-	ep->eval(u"xlabel('time (s)')");
-	ep->eval(u"ylabel('dependent')");
-
-	// displays results from the previous evaluation
-	for (int i = 0; i < result.getNumberOfElements(); i++)
-		std::cout << (double)result[i] << std::endl;
-
-	*/
-
-	// Below are tests for a sample text file input
-
-	std::vector<double> testInput;
-	std::vector<double> testTime;
-
-	populate(testInput, testTime, 1, "C:\\Users\\profe\\Desktop\\test.txt"); // change string to whatever the real destination will be
-
-	auto testDataArray = factory.createArray({ 1,testInput.size() }, testInput.cbegin(), testInput.cend());
-	auto testTimeArray = factory.createArray({ 1,testTime.size() }, testTime.cbegin(), testTime.cend());
-	ep->setVariable(u"data", testDataArray);
-	ep->setVariable(u"time", testTimeArray);
-	ep->eval(u"plot(time, data)");
-	ep->eval(u"xlabel('time (s)')");
-	ep->eval(u"ylabel('data')");
-
-	// everything below this point is testing least squares
-	// or linearizing data. Will probably be its own function later
-	int N = testInput.size();
-	double m, b, top1 = 0, top2a = 0, top2b = 0, bot1 = 0, bot2 = 0;
-
-	for (int i = 0; i < N; i++) {
-
-		top1 += testInput.at(i) * testTime.at(i);
-		top2a += testTime.at(i);
-		top2b += testInput.at(i);
-		bot1 += testTime.at(i) * testTime.at(i);
-		bot2 += testTime.at(i);
-
+	for (int i = 0; i < vWind.size(); i++) {
+		vWind.at(i) = vWind.at(i) * 18.91 - 17.92;
 	} // for
+	auto windArr = factory.createArray({ 1,vWind.size() }, vWind.cbegin(), vWind.cend());
 
-	m = (N * top1 - top2a * top2b) / (N * bot1 - bot2 * bot2);
-	b = (top2b - m * top2a) / N;
+	ep->setVariable(u"time", timeArr);
+	ep->setVariable(u"temp", tempArr);
+	ep->setVariable(u"xacc", xaccArr);
+	ep->setVariable(u"yacc", yaccArr);
+	ep->setVariable(u"zacc", zaccArr);
+	ep->setVariable(u"kPitch", kPitchArr);
+	ep->setVariable(u"kRoll", kRollArr);
+	ep->setVariable(u"latitude", latitudeArr);
+	ep->setVariable(u"longitude", longitudeArr);
+	ep->setVariable(u"watts", wattArr);
+	ep->setVariable(u"wind", windArr);
 
-	auto mA = factory.createScalar(m);
-	ep->setVariable(u"m", mA);
-	auto bA = factory.createScalar(b);
-	ep->setVariable(u"b", bA);
+	ep->eval(u"plot(time, temp)");
+	ep->eval(u"xlabel('Time (s)')");
+	ep->eval(u"ylabel('Temperature (C)')");
+	ep->eval(u"figure");
 
-	ep->eval(u"hold on");
-	ep->eval(u"fplot(@(x) m * x + b, [0,6])");
+	ep->eval(u"plot(time, xacc)");
+	ep->eval(u"xlabel('Time (s)')");
+	ep->eval(u"ylabel('X Acceleration (m/s)')");
+	ep->eval(u"figure");
+
+	ep->eval(u"plot(time, yacc)");
+	ep->eval(u"xlabel('Time (s)')");
+	ep->eval(u"ylabel('Y Acceleration (m/s)')");
+	ep->eval(u"figure");
+
+	ep->eval(u"plot(time, zacc)");
+	ep->eval(u"xlabel('Time (s)')");
+	ep->eval(u"ylabel('Z Acceleration (m/s)')");
+	ep->eval(u"figure");
+
+	ep->eval(u"plot(time, kPitch)");
+	ep->eval(u"xlabel('Time (s)')");
+	ep->eval(u"ylabel('Kalman Pitch')");
+	ep->eval(u"figure");
+
+	ep->eval(u"plot(time, kRoll)");
+	ep->eval(u"xlabel('Time (s)')");
+	ep->eval(u"ylabel('Kalman Roll')");
+	ep->eval(u"figure");
+
+	ep->eval(u"plot(time, latitude)");
+	ep->eval(u"xlabel('Time (s)')");
+	ep->eval(u"ylabel('Latitude')");
+	ep->eval(u"figure");
+
+	ep->eval(u"plot(time, longitude)");
+	ep->eval(u"xlabel('Time (s)')");
+	ep->eval(u"ylabel('Longitude')");
+	ep->eval(u"figure");
+
+	ep->eval(u"plot(time, watts)");
+	ep->eval(u"xlabel('Time (s)')");
+	ep->eval(u"ylabel('Wattage Draw')");
+	ep->eval(u"figure");
+
+	ep->eval(u"plot(time, wind)");
+	ep->eval(u"xlabel('Time (s)')");
+	ep->eval(u"ylabel('Wind Speed (mph)')");
+	ep->eval(u"figure");
+
+	//image reading
+	ep->eval(u"img1 = imread('C:\\Users\\profe\\Desktop\\Full.jpg');");
+	ep->eval(u"img2 = imread('C:\\Users\\profe\\Desktop\\Not_full.jpg');");
+	ep->eval(u"imshowpair(img1,img2,'diff');");
+	ep->eval(u"[ximage,yimage] = ginput(2);");
+
+	// getting y pixel value
+	double fuelConst = 0.0087006797;
+	auto yimage = ep->getVariable(u"yimage");
+	double fuelTop = yimage[0];
+	double fuelBot = yimage[1];
+	double fuelPix = fuelBot - fuelTop;
+	double fuelUsed = fuelPix * fuelConst; // convert to cm height
+	fuelUsed = fuelUsed * 10 * 3; // convert to ml
+	std::cout << "Fuel used: " << fuelUsed << "ml" << std::endl;
+
 
 
 	std::cout << "enter anything to exit MATLAB" << std::endl;
@@ -109,40 +138,80 @@ int main() {
 }
 
 // function to fill up the given vector using a path for a text file
-void populate(std::vector<double>& dataVector, std::vector<double>& timeVector, double timeIncrement, std::string input) {
+void populate(double timeIncrement, std::string input) {
 
-	std:: string line;
+	std::string line;
 	std::ifstream file;
 	size_t place = 0;
-	//size_t emptyCheck;
 	bool hasSpace;
 	double timeCounter = 0;
 
 	hasSpace = true; // to see if there is space separating two values
 
 	file.open(input);
+
+	while (getline(file, line)) {
 	
-	getline(file, line);
+		place = line.find('\n');
 
-	while (hasSpace) {
-
-		if (line.find(' ') != std::string::npos) {              // if there is a space character found,
-														        // initialize an item for the value found
-			place = line.find(' ');                             // before that space. Then, create a new
-			dataVector.push_back(stod(line.substr(0, place)));  // substring for everything after the space
-			timeVector.push_back(timeCounter);
-			timeCounter += timeIncrement;
-			line = line.substr(place + 1, std::string::npos);
-
+		if (line.substr(0, place).compare("Temp = ") == 0) {
+			getline(file, line);
+			place = line.find('\n');
+			temp.push_back(stod(line.substr(0, place)));
+		}
+		else if (line.substr(0, place).compare("X acc = ") == 0) {
+			getline(file, line);
+			place = line.find('\n');
+			xacc.push_back(stod(line.substr(0, place)));
+		}
+		else if (line.substr(0, place).compare("Y acc = ") == 0) {
+			getline(file, line);
+			place = line.find('\n');
+			yacc.push_back(stod(line.substr(0, place)));
+		}
+		else if (line.substr(0, place).compare("Z acc = ") == 0) {
+			getline(file, line);
+			place = line.find('\n');
+			zacc.push_back(stod(line.substr(0, place)));
+		}
+		else if (line.substr(0, place).compare("Kalman Pitch = ") == 0) {
+			getline(file, line);
+			place = line.find('\n');
+			kPitch.push_back(stod(line.substr(0, place)));
+		}
+		else if (line.substr(0, place).compare("Kalman Roll = ") == 0) {
+			getline(file, line);
+			place = line.find('\n');
+			kRoll.push_back(stod(line.substr(0, place)));
+		}
+		else if (line.substr(0, place).compare("Latitude: ") == 0) {
+			getline(file, line);
+			place = line.find('\n');
+			latitude.push_back(stod(line.substr(0, place)));
+		}
+		else if (line.substr(0, place).compare("Longitude: ") == 0) {
+			getline(file, line);
+			place = line.find('\n');
+			longitude.push_back(stod(line.substr(0, place)));
+		}
+		else if (line.substr(0, place).compare("Wind Speed voltage: ") == 0) {
+			getline(file, line);
+			place = line.find('\n');
+			vWind.push_back(stod(line.substr(0, place)));
+		}
+		else if (line.substr(0, place).compare("W: ") == 0) {
+			getline(file, line);
+			place = line.find('\n');
+			watt.push_back(stod(line.substr(0, place)));
 		}
 		else {
+			continue;
+		}
 
-			dataVector.push_back(stod(line.substr(0, place)));  // case for the very last value found
-			timeVector.push_back(timeCounter);
-			hasSpace = false;
+	}
 
-		} // if-else
-
-	} // while
+	for (int i = 0; i < temp.size(); i++) {
+		testTime.push_back(i * timeIncrement);
+	}
 
 }
